@@ -16,5 +16,7 @@ The `videotrim.txt` file should look something like
 2021-08-23-22-21-08.MP4 13 37
 2021-08-23-22-13-33.MP4 14 62
 2021-08-23-22-16-12.MP4 13 62
-2021-08-23-22-07-19.MP4 16 36
+2021-08-23-22-07-19.MP4 16 36 / 60 74
 ```
+
+The `/` is used to create multiple splits from a single source

@@ -3,9 +3,27 @@
 import os, sys
 import argparse
 
+# use this in the txt input file to indicate multiple splits of same file, e.g.,
+# 2021-08-25-12-02-18.MP4 57 69 / 92 107 / 173 186 / 209 221
+MULTIDIV = '/'
+
 class VideoTrimTool:
   def __init__(self):
     pass
+
+  def _validate_line(self, line):
+    pieces = line.split()
+
+    if len(pieces) % 3 == 0:
+      # if multiple splits
+      if len(pieces) > 3 and MULTIDIV in pieces:
+        return pieces
+      return pieces
+
+    if len(pieces) != 3:
+      raise RuntimeError(f"could not parse line '{' '.join(pieces)}'")
+
+    return None
 
   def _parse(self, ifile):
     root = os.path.dirname(os.path.abspath(ifile))
@@ -23,24 +41,33 @@ class VideoTrimTool:
 
       # ignore comments
       if not line.startswith('#'):
-        pieces = line.split()
+        pieces = self._validate_line(line)
 
-        if len(pieces) != 3:
-          raise RuntimeError(f"could not parse line '{line}'")
-          continue
+        file = pieces[0]
+        source = os.path.join(root, file)
+        start = pieces[1::3]
+        end = pieces[2::3]
 
-        file, start, end = pieces
-        fullfile = os.path.join(root, file)
+        # if multiple splits
+        if len(start) > 1:
+          splits = []
+          fname, fext = os.path.splitext(file)
+          for i, (s, e) in enumerate(zip(start, end)):
+            splits.append((f"{fname}-s{i+1}{fext}", int(s), int(e)))
+        else:
+          splits = [(file, int(start[0]), int(end[0]))]
         
-        video = {
-          'basename': os.path.basename(fullfile),
-          'target': os.path.join(output_dir, os.path.basename(fullfile)),
-          'fullfile': fullfile,
-          'start': int(start),
-          'end': int(end),
-          'duration': int(end) - int(start)
-        }
-        videos.append(video)
+        for f, s, e in splits:
+          fullfile = os.path.join(root, f)
+          video = {
+            'basename': os.path.basename(fullfile),
+            'target': os.path.join(output_dir, os.path.basename(fullfile)),
+            'source': source,
+            'start': s,
+            'end': e,
+            'duration': e - s
+          }
+          videos.append(video)
 
     return videos
 
@@ -70,7 +97,7 @@ class VideoTrimTool:
       print()
       print(f"Processing {os.path.basename(v['basename'])} ({v['duration']} seconds)")
       
-      os.system(f"ffmpeg -y -i {v['fullfile']} -ss {v['start']} -t {v['duration']} -c copy {v['target']}")
+      os.system(f"ffmpeg -y -i {v['source']} -ss {v['start']} -t {v['duration']} -c copy {v['target']}")
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(add_help=True, description="Select a state request to test mission manager with")
